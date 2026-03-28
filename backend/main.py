@@ -73,10 +73,42 @@ search_client = SearchClient(
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 )
 
+@app.get("/")
+def root():
+    """Root endpoint."""
+    return {"message": "ChariotAI API is running", "status": "healthy"}
+
 @app.get("/health")
 def health_check():
     """Simple endpoint to prove the server is running."""
-    return {"status": "healthy", "service": "ChariotAI"}
+    try:
+        # Test if environment variables are loaded
+        missing_vars = []
+        required_vars = [
+            "AZURE_OPENAI_ENDPOINT",
+            "AZURE_OPENAI_KEY",
+            "AZURE_GPT_DEPLOYMENT",
+            "AZURE_EMBEDDING_DEPLOYMENT",
+            "AZURE_SEARCH_ENDPOINT",
+            "AZURE_SEARCH_KEY",
+            "AZURE_SEARCH_INDEX"
+        ]
+        
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            return {
+                "status": "unhealthy",
+                "service": "ChariotAI",
+                "error": "Missing environment variables",
+                "missing": missing_vars
+            }
+        
+        return {"status": "healthy", "service": "ChariotAI", "config": "OK"}
+    except Exception as e:
+        return {"status": "error", "service": "ChariotAI", "error": str(e)}
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
