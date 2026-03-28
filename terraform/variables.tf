@@ -65,7 +65,7 @@ variable "search_sku" {
 variable "app_service_sku" {
   description = "App Service Plan SKU — B1 (~$13/mo)"
   type        = string
-  default     = "F1"
+  default     = "B1"
 }
 
 variable "chariotai_domain" {
