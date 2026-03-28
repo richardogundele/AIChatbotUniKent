@@ -32,3 +32,8 @@ output "custom_domain_validation_token" {
   description = "TXT Record value to add to your DNS for chariotai.org verification"
   sensitive   = true
 }
+
+output "backend_url" {
+  value       = "https://${azurerm_linux_web_app.backend.default_hostname}"
+  description = "ChariotAI Python FastAPI Backend Live URL"
+}
