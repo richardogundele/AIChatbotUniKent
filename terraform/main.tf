@@ -65,13 +65,23 @@ resource "azurerm_linux_web_app" "backend" {
       python_version = "3.12"
     }
     always_on        = true # B1 supports always_on, preventing cold starts
-    app_command_line = "uvicorn main:app --host 0.0.0.0 --port 8000"
+    app_command_line = "python main.py"
   }
 
   app_settings = {
     "WEBSITES_PORT"                  = "8000"
     "CORS_ALLOWED_ORIGINS"           = var.cors_allowed_origins
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "1"
+    
+    # Placeholders to prevent Terraform from deleting these if set in portal
+    "AZURE_OPENAI_KEY"               = "REPLACE_IN_PORTAL"
+    "AZURE_OPENAI_ENDPOINT"          = "REPLACE_IN_PORTAL"
+    "AZURE_OPENAI_API_VERSION"       = "REPLACE_IN_PORTAL"
+    "AZURE_GPT_DEPLOYMENT"           = "REPLACE_IN_PORTAL"
+    "AZURE_EMBEDDING_DEPLOYMENT"     = "REPLACE_IN_PORTAL"
+    "AZURE_SEARCH_KEY"               = "REPLACE_IN_PORTAL"
+    "AZURE_SEARCH_ENDPOINT"          = "REPLACE_IN_PORTAL"
+    "AZURE_SEARCH_INDEX"             = "REPLACE_IN_PORTAL"
   }
 
   tags = azurerm_resource_group.main.tags

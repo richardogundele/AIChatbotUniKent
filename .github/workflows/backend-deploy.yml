@@ -20,10 +20,15 @@ jobs:
         with:
           python-version: '3.12'
         
+      - name: Install dependencies locally for deployment
+        run: |
+          cd backend
+          pip install -r requirements.txt --target .
+        
       - name: Zip script payload for deployment
         run: |
           cd backend
-          zip -r ../backend-release.zip ./*
+          zip -r ../backend-release.zip .
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
