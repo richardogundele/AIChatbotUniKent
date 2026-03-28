@@ -48,7 +48,7 @@ resource "azurerm_static_web_app_custom_domain" "chariotai" {
 resource "azurerm_service_plan" "backend" {
   name                = "${var.app_name}-asp-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = "westeurope" # Bypassing UK South capacity quotas
   os_type             = "Linux"
   sku_name            = var.app_service_sku # Basic Tier (B1)
   tags                = azurerm_resource_group.main.tags

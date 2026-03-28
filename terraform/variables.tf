@@ -77,5 +77,5 @@ variable "chariotai_domain" {
 variable "cors_allowed_origins" {
   description = "Allowed CORS origins for the FastAPI backend"
   type        = string
-  default     = "https://chariotai.org,https://www.chariotai.org,http://localhost:5173"
+  default     = "https://chariotai.org,https://www.chariotai.org,http://localhost:5173,https://delightful-coast-0e2e5d103.6.azurestaticapps.net"
 }
