@@ -15,9 +15,9 @@ app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
 # CORS setup (Robust handling for production + Fallbacks)
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
-origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+env_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
-# Hard-coded Golden Key Fallbacks (Ensures demo always works)
+# Hard-coded Golden Key Fallbacks (always included regardless of env var)
 golden_origins = [
     "https://chariotai.org",
     "https://www.chariotai.org",
@@ -25,9 +25,12 @@ golden_origins = [
     "https://delightful-coast-0e2e5d103.6.azurestaticapps.net"
 ]
 
+# Merge both lists, preserving order and removing duplicates
+origins = list(dict.fromkeys(golden_origins + env_origins))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins else golden_origins, # Never allow "*" with credentials
+    allow_origins=origins,  # Never allow "*" with credentials
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
