@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './index.css';
 
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 // SVG Icons to match the original design
 const Icons = {
   Robot: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>,
@@ -30,6 +32,7 @@ const CATEGORIES = [
 function App() {
   const [messages, setMessages] = useState([
     {
+      id: genId(),
       role: 'ai',
       text: "Hi there! 👋 I'm ChariotAI, your AI Powered Student Support Chatbot. I can help you with information about open days, accommodation, courses, events, and more. How can I help you today?",
       sources: []
@@ -90,12 +93,12 @@ function App() {
     if (!inputText.trim()) return;
     
     const userMsg = inputText.trim();
-    setMessages(prev => [...prev, { role: 'human', text: userMsg }]);
+    setMessages(prev => [...prev, { id: genId(), role: 'human', text: userMsg }]);
     setInputText("");
     setIsLoading(true);
 
-    // Build conversation history (excluding the very first welcome message if preferred, or just tail 6)
-    const apiHistory = messages.slice(-6).map(m => ({
+    // Skip the first welcome message (index 0), take last 6 of the rest
+    const apiHistory = messages.slice(1).slice(-6).map(m => ({
       role: m.role,
       text: m.text
     }));
@@ -121,15 +124,16 @@ function App() {
       }
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'ai', text: data.answer, sources: data.sources }]);
-      
+      setMessages(prev => [...prev, { id: genId(), role: 'ai', text: data.answer, sources: data.sources }]);
+
       // Feature 4: Live Human Handoff simulation
       if (data.handoff_required) {
         setTimeout(() => {
-          setMessages(prev => [...prev, { 
-            role: 'ai', 
-            text: "🔄 **Live Agent Handoff Triggered.** Routing your session to the next available Support Staff member... Please hold.", 
-            sources: [] 
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: 'ai',
+            text: "🔄 **Live Agent Handoff Triggered.** Routing your session to the next available Support Staff member... Please hold.",
+            sources: []
           }]);
         }, 1500);
       }
@@ -148,7 +152,10 @@ function App() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSend();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -191,8 +198,8 @@ function App() {
             </div>
 
             <div className="chat-history">
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`message-wrapper ${msg.role}`}>
+              {messages.map((msg) => (
+                <div key={msg.id} className={`message-wrapper ${msg.role}`}>
                   <div className="avatar">
                     {msg.role === 'ai' ? '🤖' : '👩‍🎓'}
                   </div>
@@ -231,8 +238,9 @@ function App() {
                   placeholder="Type your question here..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  onKeyUp={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={isLoading}
+                  maxLength={2000}
                 />
                 <div className="input-actions">
                   <button 

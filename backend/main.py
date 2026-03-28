@@ -1,7 +1,8 @@
 import os
+from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
@@ -22,15 +23,18 @@ app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
 # CORS setup (Robust handling for production + Fallbacks)
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
-origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+env_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
-# Hard-coded Golden Key Fallbacks (Ensures demo always works)
+# Hard-coded Golden Key Fallbacks (always included regardless of env var)
 golden_origins = [
     "https://chariotai.org",
     "https://www.chariotai.org",
     "http://localhost:5173",
     "https://delightful-coast-0e2e5d103.6.azurestaticapps.net"
 ]
+
+# Merge both lists, preserving order and removing duplicates
+origins = list(dict.fromkeys(golden_origins + env_origins))
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,14 +44,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from typing import List
-
 class MessageHistory(BaseModel):
     role: str
     text: str
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=2000)
     history: List[MessageHistory] = []
 
 class ChatResponse(BaseModel):
@@ -56,7 +58,15 @@ class ChatResponse(BaseModel):
     handoff_required: bool = False
 
 # 🛡️ SAFETY GUARDRAIL: Crisis keywords that completely bypass the AI
-CRISIS_KEYWORDS = ["suicide", "depressed", "overwhelmed", "self-harm", "hurt myself", "crisis", "samaritans"]
+CRISIS_KEYWORDS = [
+    "suicide", "suicidal",
+    "self-harm", "self harm", "hurt myself", "harm myself", "hurting myself",
+    "depressed", "depression",
+    "anxiety attack", "panic attack",
+    "mental health crisis",
+    "crisis",
+    "samaritans",
+]
 
 # Initialize Azure Cloud Clients
 embeddings = AzureOpenAIEmbeddings(
