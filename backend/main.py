@@ -1,7 +1,8 @@
 import os
+from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
@@ -10,6 +11,21 @@ from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
 
 load_dotenv()
+
+# Startup validation — fail fast with a clear message instead of a cryptic SDK error
+REQUIRED_ENV_VARS = [
+    "AZURE_OPENAI_KEY",
+    "AZURE_OPENAI_ENDPOINT",
+    "AZURE_OPENAI_API_VERSION",
+    "AZURE_GPT_DEPLOYMENT",
+    "AZURE_EMBEDDING_DEPLOYMENT",
+    "AZURE_SEARCH_ENDPOINT",
+    "AZURE_SEARCH_INDEX",
+    "AZURE_SEARCH_KEY",
+]
+missing_vars = [v for v in REQUIRED_ENV_VARS if not os.getenv(v)]
+if missing_vars:
+    raise RuntimeError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
@@ -36,14 +52,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from typing import List
-
 class MessageHistory(BaseModel):
     role: str
     text: str
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=2000)
     history: List[MessageHistory] = []
 
 class ChatResponse(BaseModel):
@@ -52,7 +66,15 @@ class ChatResponse(BaseModel):
     handoff_required: bool = False
 
 # 🛡️ SAFETY GUARDRAIL: Crisis keywords that completely bypass the AI
-CRISIS_KEYWORDS = ["suicide", "depressed", "overwhelmed", "self-harm", "hurt myself", "crisis", "samaritans"]
+CRISIS_KEYWORDS = [
+    "suicide", "suicidal",
+    "self-harm", "self harm", "hurt myself", "harm myself", "hurting myself",
+    "depressed", "depression",
+    "anxiety attack", "panic attack",
+    "mental health crisis",
+    "crisis",
+    "samaritans",
+]
 
 # Initialize Azure Cloud Clients
 embeddings = AzureOpenAIEmbeddings(
@@ -67,7 +89,7 @@ llm = AzureChatOpenAI(
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
     api_key=os.getenv("AZURE_OPENAI_KEY"),
-    temperature=0.0 # Strict Zero-Creativity mode to prevent hallucination
+    temperature=0.1
 )
 
 search_client = SearchClient(

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './index.css';
@@ -30,6 +32,7 @@ const CATEGORIES = [
 function App() {
   const [messages, setMessages] = useState([
     {
+      id: genId(),
       role: 'ai',
       text: "Hi there! 👋 I'm ChariotAI, your AI Powered Student Support Chatbot. I can help you with information about open days, accommodation, courses, events, and more. How can I help you today?",
       sources: []
@@ -48,12 +51,12 @@ function App() {
     if (!inputText.trim()) return;
     
     const userMsg = inputText.trim();
-    setMessages(prev => [...prev, { role: 'human', text: userMsg }]);
+    setMessages(prev => [...prev, { id: genId(), role: 'human', text: userMsg }]);
     setInputText("");
     setIsLoading(true);
 
-    // Build conversation history (excluding the very first welcome message if preferred, or just tail 6)
-    const apiHistory = messages.slice(-6).map(m => ({
+    // Skip the first welcome message (index 0), take last 6 of the rest
+    const apiHistory = messages.slice(1).slice(-6).map(m => ({
       role: m.role,
       text: m.text
     }));
@@ -67,31 +70,41 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw { status: response.status };
       }
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'ai', text: data.answer, sources: data.sources }]);
-      
+      setMessages(prev => [...prev, { id: genId(), role: 'ai', text: data.answer, sources: data.sources }]);
+
       // Feature 4: Live Human Handoff simulation
       if (data.handoff_required) {
         setTimeout(() => {
-          setMessages(prev => [...prev, { 
-            role: 'ai', 
-            text: "🔄 **Live Agent Handoff Triggered.** Routing your session to the next available Support Staff member... Please hold.", 
-            sources: [] 
+          setMessages(prev => [...prev, {
+            id: genId(),
+            role: 'ai',
+            text: "🔄 **Live Agent Handoff Triggered.** Routing your session to the next available Support Staff member... Please hold.",
+            sources: []
           }]);
         }, 1500);
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', text: "Sorry, I am having trouble connecting to the server. Please check if the backend is running.", sources: [] }]);
+      let errorText = "Sorry, I am having trouble connecting to the server. Please try again.";
+      if (error.status === 503) {
+        errorText = "The ChariotAI engine is temporarily unavailable. Please try again shortly.";
+      } else if (error.status >= 400 && error.status < 500) {
+        errorText = "There was a problem with your request. Please try again.";
+      }
+      setMessages(prev => [...prev, { id: genId(), role: 'ai', text: errorText, sources: [] }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSend();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -137,8 +150,8 @@ function App() {
             </div>
 
             <div className="chat-history">
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`message-wrapper ${msg.role}`}>
+              {messages.map((msg) => (
+                <div key={msg.id} className={`message-wrapper ${msg.role}`}>
                   <div className="avatar">
                     {msg.role === 'ai' ? '🤖' : '👩‍🎓'}
                   </div>
@@ -177,14 +190,10 @@ function App() {
                   placeholder="Type your question here..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  onKeyUp={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   disabled={isLoading}
+                  maxLength={2000}
                 />
-                <div className="input-actions">
-                  <button className="icon-button" title="Voice Input (Coming Soon)">
-                    {Icons.Mic}
-                  </button>
-                </div>
               </div>
               <button 
                 className="icon-button send-button" 
