@@ -3,7 +3,7 @@
 **ChariotAI** is an enterprise-grade, RAG-powered (Retrieval-Augmented Generation) student support chatbot designed specifically for the University of Kent. It provides 24/7, highly accurate, and legally compliant answers to student queries ranging from admissions and academic integrity to wellbeing support.
 
 ### 🌟 Live Demo
-- **Live Frontend**: [https://chariotai.org](https://chariotai.org) 
+- **Live Frontend**: [[https://chariotai.org](https://chariotai.org)](https://delightful-coast-0e2e5d103.6.azurestaticapps.net/)
 - **Production API**: `https://chariotai-api-prod.azurewebsites.net`
 
 ---
