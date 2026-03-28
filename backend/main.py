@@ -44,12 +44,16 @@ CRISIS_KEYWORDS = ["suicide", "depressed", "overwhelmed", "self-harm", "hurt mys
 # Initialize Azure Cloud Clients
 embeddings = AzureOpenAIEmbeddings(
     azure_deployment=os.getenv("AZURE_EMBEDDING_DEPLOYMENT"),
-    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION")
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=os.getenv("AZURE_OPENAI_KEY")
 )
 
 llm = AzureChatOpenAI(
     azure_deployment=os.getenv("AZURE_GPT_DEPLOYMENT"),
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    api_key=os.getenv("AZURE_OPENAI_KEY"),
     temperature=0.0 # Strict Zero-Creativity mode to prevent hallucination
 )
 

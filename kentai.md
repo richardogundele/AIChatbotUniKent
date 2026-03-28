@@ -21,14 +21,31 @@ This document is your technical defense. You built an enterprise-tier architectu
 **What you did:** You used FastAPI for the Python backend.
 **Why you did it:** *"FastAPI is natively asynchronous, meaning it doesn't block the server while waiting 3 seconds for OpenAI to stream a response back. It also self-documents the API contract, making frontend integration flawless."*
 
+```python
+# From backend/main.py
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    # Async handling for high-concurrency student support
+```
+---
+
 ---
 
 ## 2. Guarding Student Safety (The "Handoff" Logic)
 
-**Phil Anthony (Head of AI) will ask about safety.**
-*The Chatbot handles admissions, but what if a student types "I want to hurt myself"?*
+### Crisis Handoff Guardrail
+**Why:** Safely escalating life-threatening queries without hallucinations.
+```python
+# From backend/main.py
+CRISIS_KEYWORDS = ["suicide", "depressed", "crisis", "samaritans"]
 
-**Your Answer:** *"An AI should never generatively respond to a life-threatening crisis. Before the message is even sent to LangChain, my `main.py` intercepts the request against a pre-defined list of crisis vectors. If tripped, the API immediately throws an `handoff_required: True` flag. The React frontend catches that flag and physically overrides the UI to display the Samaritans and SSW emergency phone numbers. It's a deterministic, hard-coded safety net."*
+if any(keyword in user_message for keyword in CRISIS_KEYWORDS):
+    return ChatResponse(
+        answer="If you are in distress, please contact Student Support (SSW) on 01227 823333...",
+        handoff_required=True
+    )
+```
+---
 
 ---
 
