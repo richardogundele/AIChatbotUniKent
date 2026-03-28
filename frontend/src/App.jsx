@@ -37,12 +37,54 @@ function App() {
   ]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const chatEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Auto scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-GB';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText(transcript);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert('Voice input is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -116,9 +158,6 @@ function App() {
         <section className="hero-banner">
           <h1>🤖 ChariotAI - AI Powered Student Support Chatbot</h1>
           <p>Your inclusive AI assistant for campus life</p>
-          <div className="accessibility-badge">
-            {Icons.Accessibility} WCAG 2.1 AA Compliant
-          </div>
         </section>
 
         {/* Main Interface */}
@@ -196,7 +235,12 @@ function App() {
                   disabled={isLoading}
                 />
                 <div className="input-actions">
-                  <button className="icon-button" title="Voice Input (Coming Soon)">
+                  <button 
+                    className={`icon-button ${isRecording ? 'recording' : ''}`}
+                    onClick={toggleVoiceInput}
+                    title={isRecording ? "Stop Recording" : "Voice Input"}
+                    disabled={isLoading}
+                  >
                     {Icons.Mic}
                   </button>
                 </div>
