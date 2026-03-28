@@ -60,14 +60,22 @@ function App() {
 
     try {
       const apiUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+      
+      // Add timeout to detect slow responses
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${apiUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg, history: apiHistory })
+        body: JSON.stringify({ message: userMsg, history: apiHistory }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -84,7 +92,14 @@ function App() {
         }, 1500);
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'ai', text: "Sorry, I am having trouble connecting to the server. Please check if the backend is running.", sources: [] }]);
+      let errorMsg = "Sorry, I am having trouble connecting to the server.";
+      if (error.name === 'AbortError') {
+        errorMsg = "⏱️ The request is taking longer than expected. The server might be warming up (Azure cold start). Please try again in a moment.";
+      } else if (error.message.includes('500')) {
+        errorMsg = "🔧 The server encountered an error. Please try rephrasing your question or try again shortly.";
+      }
+      setMessages(prev => [...prev, { role: 'ai', text: errorMsg, sources: [] }]);
+      console.error('Chat error:', error);
     } finally {
       setIsLoading(false);
     }

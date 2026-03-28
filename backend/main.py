@@ -80,7 +80,11 @@ def health_check():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
+    import time
+    start_time = time.time()
+    
     user_message = request.message.lower()
+    print(f"[{time.strftime('%H:%M:%S')}] Received message: {request.message[:50]}...")
     
     # 1. Execute Safety Guardrail with Handoff
     if any(keyword in user_message for keyword in CRISIS_KEYWORDS):
@@ -92,9 +96,12 @@ def chat_endpoint(request: ChatRequest):
     
     try:
         # 2. Embed the student's question into vectors
+        embed_start = time.time()
         question_vector = embeddings.embed_query(request.message)
+        print(f"  ⏱️ Embedding took: {time.time() - embed_start:.2f}s")
         
         # 3. Retrieve matching institutional knowledge from Azure AI Search
+        search_start = time.time()
         vector_query = VectorizedQuery(
             vector=question_vector, 
             k_nearest_neighbors=3, 
@@ -114,6 +121,8 @@ def chat_endpoint(request: ChatRequest):
         for result in results:
             retrieved_docs.append(f"Source ({result['source_url']}):\n{result['content']}")
             sources_set.add(result['source_url'])
+        
+        print(f"  ⏱️ Search took: {time.time() - search_start:.2f}s")
             
         context = "\n\n".join(retrieved_docs)
         
@@ -147,7 +156,10 @@ def chat_endpoint(request: ChatRequest):
         Student's Latest Question: {request.message}
         """
         
+        llm_start = time.time()
         response = llm.invoke(prompt)
+        print(f"  ⏱️ LLM took: {time.time() - llm_start:.2f}s")
+        print(f"✅ Total request time: {time.time() - start_time:.2f}s")
         
         return ChatResponse(
             answer=response.content,
@@ -156,7 +168,8 @@ def chat_endpoint(request: ChatRequest):
         )
         
     except Exception as e:
-        print(f"Error in chat: {e}")
+        print(f"❌ Error in chat: {e}")
+        print(f"  Total time before error: {time.time() - start_time:.2f}s")
         raise HTTPException(status_code=503, detail="ChariotAI engine is currently unavailable.")
 
 if __name__ == "__main__":
