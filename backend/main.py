@@ -27,7 +27,7 @@ golden_origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins else golden_origins, # Never allow "*" with credentials
+    allow_origins=list(set(origins + golden_origins)), # Merge and de-duplicate
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
