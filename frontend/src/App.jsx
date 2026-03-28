@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-
-const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './index.css';
+
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // SVG Icons to match the original design
 const Icons = {
