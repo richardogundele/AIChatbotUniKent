@@ -13,11 +13,21 @@ load_dotenv()
 
 app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
-# CORS setup (Allows the React frontend to talk to this backend)
-origins = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+# CORS setup (Robust handling for production + Fallbacks)
+raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+# Hard-coded Golden Key Fallbacks (Ensures demo always works)
+golden_origins = [
+    "https://chariotai.org",
+    "https://www.chariotai.org",
+    "http://localhost:5173",
+    "https://delightful-coast-0e2e5d103.6.azurestaticapps.net"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins if origins else golden_origins, # Never allow "*" with credentials
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
