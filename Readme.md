@@ -1,61 +1,55 @@
-To design this chatbot effectively for the AI Software Engineer interview, we will move from a broad "Knowledge Assistant" concept to a specific, high-signal University of Kent Student Support Assistant.
+# ChariotAI — AI Powered Student Support Chatbot
 
-The panel (Phil, Christopher, and Kaidi) wants to see a prototype that handles admissions, assessments, and wellbeing with high accuracy and clear safety guardrails.
+**ChariotAI** is an enterprise-grade, RAG-powered (Retrieval-Augmented Generation) student support chatbot designed specifically for the University of Kent. It provides 24/7, highly accurate, and legally compliant answers to student queries ranging from admissions and academic integrity to wellbeing support.
 
-1. Core Architecture: The "Verified Student Assistant"
-We will adapt your Verified Insight Engine architecture to create a system that is grounded in Kent's specific policies.
+### 🌟 Live Demo
+- **Live Frontend**: [https://chariotai.org](https://chariotai.org) 
+- **Production API**: `https://chariotai-api-prod.azurewebsites.net`
 
-Frontend: Streamlit (for rapid, professional UI as used in your previous work).
+---
 
-Orchestration: LangGraph (to handle the self-correction loops you've already built).
+## 🏗️ Architecture
 
-Vector Database: ChromaDB (locally hosted to ensure data privacy, aligned with Kent’s focus on secure AI).
+This project strictly adheres to Cloud-Native and Infrastructure-as-Code (IaC) methodologies using a unified **Monorepo** structure.
 
-Knowledge Base: Scraped content from the University of Kent’s official pages, specifically:
+```mermaid
+graph TD
+    A[Student] --> B[React Frontend]
+    B -->|Deployed via GitHub Actions| C(Azure Static Web Apps)
+    C -->|REST API POST /chat| D[FastAPI Backend]
+    D -->|Deployed via GitHub Actions| E(Azure App Service - Linux B1)
+    E -->|Embed Query| F[Azure OpenAI]
+    F -->|GPT-4o-mini / ada-002| E
+    E -->|Vector Search| G[Azure AI Search]
+    G -->|Retrieve Official Kent Docs| E
+```
 
-Academic Integrity: Distinguishing between "study buddy" use and misconduct.
+### The Tech Stack
+* **Frontend**: React.js + Vite (Tailwind/CSS glassmorphism UI, Markdown rendering support).
+* **Backend**: Python FastAPI (High-performance async REST framework).
+* **AI Orchestrator**: LangChain (Manages conversation memory and RAG execution).
+* **Vector Database**: Azure AI Search (Stores vector embeddings of the University's rulebooks).
+* **LLM**: Azure OpenAI (`gpt-4o-mini` and `text-embedding-ada-002`).
+* **CI/CD**: GitHub Actions (Independent pipelines for frontend and backend pushes).
+* **Infrastructure**: HashiCorp Terraform (Provisions the entire Azure ecosystem).
 
-Wellbeing: Contact details for SSW, emergency numbers (01227 823333), and 24/7 support like Spectrum Life.
+---
 
-ChatGPT Edu: Details on the April 2026 rollout for students.
+## 🛡️ Enterprise Safety & Guardrails
+A university-facing AI must never hallucinate policies or mishandle student mental health crises.
+1. **Zero Hallucination Policy**: The LLM is restricted (`temperature=0.0`) and grounded strictly in documents retrieved from Azure AI Search.
+2. **Crisis Escalation Guardrail**: The FastAPI backend intercepts severe keywords (e.g., *crisis, overwhelmed, depressed*). If triggered, it instantly bypasses the AI generation and returns a hard-coded response directing the student to the Student Support & Wellbeing (SSW) emergency contact numbers and the Samaritans.
 
-2. Technical Design Plan
-This plan follows your "Verified Insight Engine" structure but is tailored for the University environment.
+---
 
-A. The "Kent-Specific" RAG Pipeline
-Ingestion: Load PDFs/HTML of Kent's AI Use Guidelines and Student Support pages.
+## 🚀 Deployment & CI/CD
+This monorepo utilizes **GitHub Actions** for chirurgically precise deployments:
+* **Frontend Pipeline** (`.github/workflows/frontend-deploy.yml`): Triggers only when React code is changed. Compiles the Vite build and pushes directly to Azure Static Web Apps.
+* **Backend Pipeline** (`.github/workflows/backend-deploy.yml`): Triggers only on Python code changes. Packages the FastAPI application and uses ZipDeploy to update the Azure App Service container.
 
-Semantic Search: Use nomic-embed-text to index these documents in ChromaDB.
-
-Verification Loop: When a student asks a question (e.g., "Can I use AI for my essay?"), the agent retrieves the policy. If the answer is ambiguous, the Self-Correction Node re-queries the store to find specific "Assignment Brief" exceptions.
-
-B. Safety & Trust Features
-To impress the panel, we will carry over your "Confidence Indicators" and "Source Transparency":
-
-Source Attribution: Every response must cite the specific Kent webpage or policy document.
-
-Emergency Hand-off: If the bot detects "Wellbeing" or "Crisis" keywords, it must immediately provide the Samaritans (116 123) or Campus Security numbers instead of attempting a generative answer.
-
-3. Five-Minute Presentation Outline
-You need to be direct and strategic. Use this structure for your 5-minute demo:
-
-The Problem (30s): Students need 24/7 support for complex policies (Academic Integrity, Wellbeing) but risk hallucinations from generic AI.
-
-The Solution (1 min): A prototype built on Python and LangGraph that uses a "Verified Attribution" loop to ensure every answer is grounded in University of Kent documentation.
-
-Live Demo (2 mins): * Query 1: "When do I get access to ChatGPT Edu?" (Answer: April 2026).
-
-Query 2: "I'm feeling overwhelmed." (Action: Show immediate hand-off to SSW contact info).
-
-Technical Justification (1 min): Explain the choice of local vector storage for GDPR compliance and self-correcting agents to mitigate AI hallucinations.
-
-Closing (30s): How this scales into the wider AI@Kent strategy.
-
-4. Implementation Checklist
-[ ] Scrape Data: Download the "AI and Academic Integrity" and "Student Support" pages from Kent's site.
-
-[ ] Set up Streamlit: Build a clean UI with a sidebar showing "System Status" (API Ready, Knowledge Base Loaded).
-
-[ ] Code the Logic: Ensure the system refuses to answer if it can't find a Kent-specific source (Zero-hallucination policy).
-
-[ ] Prepare the Link: Host it (e.g., on a private server or Hugging Face Spaces) to email to Dr. Phil Anthony by the March 28th deadline.
+### Local Development
+1. Clone the repository.
+2. Navigate to `/backend` and run `pip install -r requirements.txt`.
+3. Add your `.env` file with your Azure credentials.
+4. Run the backend: `uvicorn main:app --reload`.
+5. Open a new terminal, navigate to `/frontend`, run `npm install` and `npm run dev`.
