@@ -12,20 +12,12 @@ from azure.search.documents.models import VectorizedQuery
 
 load_dotenv()
 
-# Startup validation — fail fast with a clear message instead of a cryptic SDK error
-REQUIRED_ENV_VARS = [
-    "AZURE_OPENAI_KEY",
-    "AZURE_OPENAI_ENDPOINT",
-    "AZURE_OPENAI_API_VERSION",
-    "AZURE_GPT_DEPLOYMENT",
-    "AZURE_EMBEDDING_DEPLOYMENT",
-    "AZURE_SEARCH_ENDPOINT",
-    "AZURE_SEARCH_INDEX",
-    "AZURE_SEARCH_KEY",
-]
-missing_vars = [v for v in REQUIRED_ENV_VARS if not os.getenv(v)]
-if missing_vars:
-    raise RuntimeError(f"Missing required environment variables: {', '.join(missing_vars)}")
+# Print startup info for debugging
+print("=" * 50)
+print("ChariotAI Backend Starting...")
+print(f"Python Path: {os.getcwd()}")
+print(f"CORS Origins Configured: {os.getenv('CORS_ALLOWED_ORIGINS', 'None')}")
+print("=" * 50)
 
 app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
@@ -46,7 +38,7 @@ origins = list(dict.fromkeys(golden_origins + env_origins))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Never allow "*" with credentials
+    allow_origins=list(set(origins + golden_origins)), # Merge and de-duplicate
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,15 +73,15 @@ embeddings = AzureOpenAIEmbeddings(
     azure_deployment=os.getenv("AZURE_EMBEDDING_DEPLOYMENT"),
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=os.getenv("AZURE_OPENAI_KEY")
+    api_key=os.getenv("AZURE_OPENAI_KEY") or os.getenv("AZURE_OPENAI_API_KEY")
 )
 
 llm = AzureChatOpenAI(
     azure_deployment=os.getenv("AZURE_GPT_DEPLOYMENT"),
     openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_key=os.getenv("AZURE_OPENAI_KEY"),
-    temperature=0.1
+    api_key=os.getenv("AZURE_OPENAI_KEY") or os.getenv("AZURE_OPENAI_API_KEY"),
+    temperature=0.0 # Strict Zero-Creativity mode to prevent hallucination
 )
 
 search_client = SearchClient(
@@ -98,14 +90,54 @@ search_client = SearchClient(
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_KEY"))
 )
 
+@app.get("/")
+def root():
+    """Root endpoint."""
+    return {"message": "ChariotAI API is running", "status": "healthy"}
+
 @app.get("/health")
 def health_check():
     """Simple endpoint to prove the server is running."""
-    return {"status": "healthy", "service": "ChariotAI"}
+    try:
+        # Test if environment variables are loaded
+        missing_vars = []
+        required_vars = [
+            "AZURE_OPENAI_ENDPOINT",
+            "AZURE_OPENAI_API_VERSION",
+            "AZURE_GPT_DEPLOYMENT",
+            "AZURE_EMBEDDING_DEPLOYMENT",
+            "AZURE_SEARCH_ENDPOINT",
+            "AZURE_SEARCH_KEY",
+            "AZURE_SEARCH_INDEX"
+        ]
+        
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        # Check for either AZURE_OPENAI_KEY or AZURE_OPENAI_API_KEY
+        if not (os.getenv("AZURE_OPENAI_KEY") or os.getenv("AZURE_OPENAI_API_KEY")):
+            missing_vars.append("AZURE_OPENAI_KEY or AZURE_OPENAI_API_KEY")
+        
+        if missing_vars:
+            return {
+                "status": "unhealthy",
+                "service": "ChariotAI",
+                "error": "Missing environment variables",
+                "missing": missing_vars
+            }
+        
+        return {"status": "healthy", "service": "ChariotAI", "config": "OK"}
+    except Exception as e:
+        return {"status": "error", "service": "ChariotAI", "error": str(e)}
 
 @app.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
+    import time
+    start_time = time.time()
+    
     user_message = request.message.lower()
+    print(f"[{time.strftime('%H:%M:%S')}] Received message: {request.message[:50]}...")
     
     # 1. Execute Safety Guardrail with Handoff
     if any(keyword in user_message for keyword in CRISIS_KEYWORDS):
@@ -117,9 +149,12 @@ def chat_endpoint(request: ChatRequest):
     
     try:
         # 2. Embed the student's question into vectors
+        embed_start = time.time()
         question_vector = embeddings.embed_query(request.message)
+        print(f"  ⏱️ Embedding took: {time.time() - embed_start:.2f}s")
         
         # 3. Retrieve matching institutional knowledge from Azure AI Search
+        search_start = time.time()
         vector_query = VectorizedQuery(
             vector=question_vector, 
             k_nearest_neighbors=3, 
@@ -139,6 +174,8 @@ def chat_endpoint(request: ChatRequest):
         for result in results:
             retrieved_docs.append(f"Source ({result['source_url']}):\n{result['content']}")
             sources_set.add(result['source_url'])
+        
+        print(f"  ⏱️ Search took: {time.time() - search_start:.2f}s")
             
         context = "\n\n".join(retrieved_docs)
         
@@ -172,7 +209,10 @@ def chat_endpoint(request: ChatRequest):
         Student's Latest Question: {request.message}
         """
         
+        llm_start = time.time()
         response = llm.invoke(prompt)
+        print(f"  ⏱️ LLM took: {time.time() - llm_start:.2f}s")
+        print(f"✅ Total request time: {time.time() - start_time:.2f}s")
         
         return ChatResponse(
             answer=response.content,
@@ -181,7 +221,8 @@ def chat_endpoint(request: ChatRequest):
         )
         
     except Exception as e:
-        print(f"Error in chat: {e}")
+        print(f"❌ Error in chat: {e}")
+        print(f"  Total time before error: {time.time() - start_time:.2f}s")
         raise HTTPException(status_code=503, detail="ChariotAI engine is currently unavailable.")
 
 if __name__ == "__main__":

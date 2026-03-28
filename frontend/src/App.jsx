@@ -40,12 +40,54 @@ function App() {
   ]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const chatEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Auto scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-GB';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText(transcript);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert('Voice input is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -63,14 +105,22 @@ function App() {
 
     try {
       const apiUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+      
+      // Add timeout to detect slow responses
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${apiUrl}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg, history: apiHistory })
+        body: JSON.stringify({ message: userMsg, history: apiHistory }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw { status: response.status };
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -88,13 +138,14 @@ function App() {
         }, 1500);
       }
     } catch (error) {
-      let errorText = "Sorry, I am having trouble connecting to the server. Please try again.";
-      if (error.status === 503) {
-        errorText = "The ChariotAI engine is temporarily unavailable. Please try again shortly.";
-      } else if (error.status >= 400 && error.status < 500) {
-        errorText = "There was a problem with your request. Please try again.";
+      let errorMsg = "Sorry, I am having trouble connecting to the server.";
+      if (error.name === 'AbortError') {
+        errorMsg = "⏱️ The request is taking longer than expected. The server might be warming up (Azure cold start). Please try again in a moment.";
+      } else if (error.message.includes('500')) {
+        errorMsg = "🔧 The server encountered an error. Please try rephrasing your question or try again shortly.";
       }
-      setMessages(prev => [...prev, { id: genId(), role: 'ai', text: errorText, sources: [] }]);
+      setMessages(prev => [...prev, { role: 'ai', text: errorMsg, sources: [] }]);
+      console.error('Chat error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -114,9 +165,6 @@ function App() {
         <section className="hero-banner">
           <h1>🤖 ChariotAI - AI Powered Student Support Chatbot</h1>
           <p>Your inclusive AI assistant for campus life</p>
-          <div className="accessibility-badge">
-            {Icons.Accessibility} WCAG 2.1 AA Compliant
-          </div>
         </section>
 
         {/* Main Interface */}
@@ -194,6 +242,16 @@ function App() {
                   disabled={isLoading}
                   maxLength={2000}
                 />
+                <div className="input-actions">
+                  <button 
+                    className={`icon-button ${isRecording ? 'recording' : ''}`}
+                    onClick={toggleVoiceInput}
+                    title={isRecording ? "Stop Recording" : "Voice Input"}
+                    disabled={isLoading}
+                  >
+                    {Icons.Mic}
+                  </button>
+                </div>
               </div>
               <button 
                 className="icon-button send-button" 
