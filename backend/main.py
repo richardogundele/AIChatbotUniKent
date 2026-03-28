@@ -11,6 +11,13 @@ from azure.search.documents.models import VectorizedQuery
 
 load_dotenv()
 
+# Print startup info for debugging
+print("=" * 50)
+print("ChariotAI Backend Starting...")
+print(f"Python Path: {os.getcwd()}")
+print(f"CORS Origins Configured: {os.getenv('CORS_ALLOWED_ORIGINS', 'None')}")
+print("=" * 50)
+
 app = FastAPI(title="ChariotAI - UoK Student Assistant")
 
 # CORS setup (Robust handling for production + Fallbacks)
