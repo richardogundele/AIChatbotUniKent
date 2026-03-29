@@ -31,3 +31,8 @@ frontend/dist/
 .env
 *.log
 venv/
+
+# Documentation (private notes)
+arc.md
+kentai.md
+The Whyy.md
