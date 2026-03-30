@@ -11,3 +11,5 @@ requests>=2.31.0
 tiktoken>=0.5.2
 python-dotenv>=1.0.1
 gunicorn>=21.2.0
+azure-cognitiveservices-speech>=1.38.0
+python-telegram-bot>=20.7

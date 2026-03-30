@@ -174,7 +174,9 @@ body, html {
 }
 
 .chat-history {
-  height: 380px;
+  height: 550px !important;
+  min-height: 550px;
+  max-height: 550px;
   overflow-y: auto;
   padding: 20px;
   display: flex;
@@ -215,6 +217,30 @@ body, html {
   font-size: 0.95rem;
   line-height: 1.5;
   animation: popIn 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  position: relative;
+}
+
+.speak-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.speak-button:hover {
+  background: rgba(255,255,255,0.8);
+  color: var(--accent-teal);
+  opacity: 1;
 }
 
 .ai .message-bubble {

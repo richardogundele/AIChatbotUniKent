@@ -1,14 +1,34 @@
 import os
-from typing import List
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+import asyncio
+import time
 
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
+
+# Telegram imports
+try:
+    from telegram import Bot
+    from telegram_bridge import init_telegram_bot, create_crisis_session, send_student_message, get_agent_messages, is_session_active
+    TELEGRAM_AVAILABLE = True
+except ImportError:
+    TELEGRAM_AVAILABLE = False
+    print("⚠️ Telegram bot not available - install python-telegram-bot")
+
+# Speech services
+try:
+    from speech_service import text_to_speech
+    SPEECH_AVAILABLE = True
+except ImportError:
+    SPEECH_AVAILABLE = False
+    print("⚠️ Azure Speech not available")
 
 load_dotenv()
 
@@ -20,6 +40,13 @@ print(f"CORS Origins Configured: {os.getenv('CORS_ALLOWED_ORIGINS', 'None')}")
 print("=" * 50)
 
 app = FastAPI(title="ChariotAI - UoK Student Assistant")
+
+# Initialize Telegram bot on startup
+@app.on_event("startup")
+async def startup_event():
+    if TELEGRAM_AVAILABLE:
+        await init_telegram_bot()
+        print("✅ Telegram live chat bridge ready")
 
 # CORS setup (Robust handling for production + Fallbacks)
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
@@ -51,11 +78,13 @@ class MessageHistory(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., max_length=2000)
     history: List[MessageHistory] = []
+    session_id: Optional[str] = None  # For ongoing crisis sessions
 
 class ChatResponse(BaseModel):
     answer: str
     sources: list[str]
     handoff_required: bool = False
+    session_id: Optional[str] = None  # For crisis sessions
 
 # 🛡️ SAFETY GUARDRAIL: Crisis keywords that completely bypass the AI
 CRISIS_KEYWORDS = [
@@ -67,6 +96,10 @@ CRISIS_KEYWORDS = [
     "crisis",
     "samaritans",
 ]
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")  # Your support team's chat ID
 
 # Initialize Azure Cloud Clients
 embeddings = AzureOpenAIEmbeddings(
@@ -132,19 +165,60 @@ def health_check():
         return {"status": "error", "service": "ChariotAI", "error": str(e)}
 
 @app.post("/chat", response_model=ChatResponse)
-def chat_endpoint(request: ChatRequest):
-    import time
+async def chat_endpoint(request: ChatRequest):
     start_time = time.time()
     
     user_message = request.message.lower()
     print(f"[{time.strftime('%H:%M:%S')}] Received message: {request.message[:50]}...")
     
+    # Check if this is an ongoing crisis session
+    if request.session_id and TELEGRAM_AVAILABLE:
+        if is_session_active(request.session_id):
+            # Forward student's message to agent on Telegram
+            await send_student_message(request.session_id, request.message)
+            
+            # Get any new messages from agent
+            agent_messages = get_agent_messages(request.session_id)
+            
+            if agent_messages:
+                # Return agent's latest message
+                latest_message = agent_messages[-1]
+                return ChatResponse(
+                    answer=f"**Support Agent:** {latest_message['text']}",
+                    sources=[],
+                    handoff_required=True,
+                    session_id=request.session_id
+                )
+            else:
+                # Agent hasn't replied yet
+                return ChatResponse(
+                    answer="Your message has been sent to our support team. They will respond shortly...",
+                    sources=[],
+                    handoff_required=True,
+                    session_id=request.session_id
+                )
+    
     # 1. Execute Safety Guardrail with Handoff
     if any(keyword in user_message for keyword in CRISIS_KEYWORDS):
+        # Create live chat session with agent
+        session_id = None
+        if TELEGRAM_AVAILABLE:
+            session_id = await create_crisis_session(request.message)
+        
         return ChatResponse(
-            answer="**If you are in immediate distress, please contact the University of Kent Student Support & Wellbeing (SSW) emergency line at 01227 823333, or call the Samaritans free 24/7 on 116 123.** Your wellbeing is the most important thing.",
+            answer="""I can hear that you're going through a really difficult time right now, and I want you to know that your feelings are valid. 💙
+
+**You don't have to face this alone.** I'm connecting you with a live support agent right now.
+
+🆘 **While you wait, immediate support is available:**
+• University of Kent Student Support & Wellbeing: **01227 823333**
+• Samaritans (24/7, free): **116 123**
+• Crisis Text Line: Text **SHOUT** to **85258**
+
+📞 **A support agent has been notified** and will respond to you here shortly. Please stay on this chat.""",
             sources=["https://www.kent.ac.uk/student-support"],
-            handoff_required=True
+            handoff_required=True,
+            session_id=session_id
         )
     
     try:
@@ -224,6 +298,27 @@ def chat_endpoint(request: ChatRequest):
         print(f"❌ Error in chat: {e}")
         print(f"  Total time before error: {time.time() - start_time:.2f}s")
         raise HTTPException(status_code=503, detail="ChariotAI engine is currently unavailable.")
+
+@app.get("/poll_agent/{session_id}")
+async def poll_agent_messages(session_id: str):
+    """Poll for new messages from agent (for real-time updates)"""
+    if not TELEGRAM_AVAILABLE:
+        return {"messages": []}
+    
+    messages = get_agent_messages(session_id)
+    return {"messages": messages, "active": is_session_active(session_id)}
+
+@app.post("/tts")
+async def text_to_speech_endpoint(text: str):
+    """Convert text to speech audio"""
+    if not SPEECH_AVAILABLE:
+        raise HTTPException(status_code=501, detail="Speech services not available")
+    
+    try:
+        audio_data = text_to_speech(text)
+        return Response(content=audio_data, media_type="audio/wav")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
