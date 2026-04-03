@@ -79,3 +79,9 @@ variable "cors_allowed_origins" {
   type        = string
   default     = "https://chariotai.org,https://www.chariotai.org,http://localhost:5173,https://delightful-coast-0e2e5d103.6.azurestaticapps.net"
 }
+
+variable "github_repo" {
+  description = "GitHub repository (owner/repo) to upload secrets to"
+  type        = string
+  default     = "richardogundele/AIChatbotUniKent"
+}

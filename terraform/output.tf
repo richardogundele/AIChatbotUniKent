@@ -37,3 +37,16 @@ output "backend_url" {
   value       = "https://${azurerm_linux_web_app.backend.default_hostname}"
   description = "ChariotAI Python FastAPI Backend Live URL"
 }
+
+output "azure_openai_endpoint" {
+  value = azurerm_cognitive_account.openai.endpoint
+}
+
+output "azure_search_endpoint" {
+  value = "https://${azurerm_search_service.search.name}.search.windows.net"
+}
+
+output "azure_search_admin_key" {
+  value     = azurerm_search_service.search.primary_key
+  sensitive = true
+}

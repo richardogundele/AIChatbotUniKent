@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.100"
     }
+    github = {
+      source  = "integrations/github"
+      version = "~> 6.0"
+    }
   }
 }
 
@@ -12,6 +16,21 @@ provider "azurerm" {
   subscription_id = var.subscription_id
   tenant_id       = var.tenant_id
   features {}
+}
+
+provider "github" {
+  # Expects GITHUB_TOKEN environment variable
+  owner = split("/", var.github_repo)[0]
+}
+
+# =============================================================
+# GITHUB SECRETS: AUTOMATED CI/CD CONNECTIVITY
+# =============================================================
+
+resource "github_actions_secret" "swa_token" {
+  repository      = split("/", var.github_repo)[1]
+  secret_name     = "AZURE_STATIC_WEB_APPS_API_TOKEN"
+  plaintext_value = azurerm_static_web_app.frontend.api_key
 }
 
 resource "azurerm_resource_group" "main" {
@@ -39,6 +58,61 @@ resource "azurerm_static_web_app_custom_domain" "chariotai" {
   static_web_app_id = azurerm_static_web_app.frontend.id
   domain_name       = var.chariotai_domain
   validation_type   = "dns-txt-token"
+}
+
+# =============================================================
+# COGNITIVE SERVICES: Azure OpenAI
+# =============================================================
+
+resource "azurerm_cognitive_account" "openai" {
+  name                = "${var.app_name}-openai-${var.environment}"
+  location            = "uksouth" # Keep model data in UK for GDPR
+  resource_group_name = azurerm_resource_group.main.name
+  kind                = "OpenAI"
+  sku_name            = var.openai_sku
+  tags                = azurerm_resource_group.main.tags
+}
+
+resource "azurerm_cognitive_deployment" "gpt" {
+  name                 = "gpt-4o-mini"
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  model {
+    format  = "OpenAI"
+    name    = "gpt-4o-mini"
+    version = "2024-07-18" # Latest Mini
+  }
+  sku {
+    name     = "Standard"
+    capacity = 10 
+  }
+}
+
+resource "azurerm_cognitive_deployment" "embedding" {
+  name                 = "text-embedding-ada-002"
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  model {
+    format  = "OpenAI"
+    name    = "text-embedding-ada-002"
+    version = "2"
+  }
+  sku {
+    name     = "Standard"
+    capacity = 20
+  }
+}
+
+# =============================================================
+# SEARCH: Azure AI Search (Vector Database)
+# =============================================================
+
+resource "azurerm_search_service" "search" {
+  name                = "${var.app_name}-search-${var.environment}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = "uksouth"
+  sku                 = var.search_sku
+  # Enabled to allow frontend to speak to search if needed (though we use backend as proxy)
+  local_authentication_enabled = true 
+  tags                = azurerm_resource_group.main.tags
 }
 
 # =============================================================
@@ -70,18 +144,18 @@ resource "azurerm_linux_web_app" "backend" {
 
   app_settings = {
     "WEBSITES_PORT"                  = "8000"
-    "CORS_ALLOWED_ORIGINS"           = var.cors_allowed_origins
+    "CORS_ALLOWED_ORIGINS"           = "https://${azurerm_static_web_app.frontend.default_host_name},http://localhost:5173"
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "1"
     
-    # Placeholders to prevent Terraform from deleting these if set in portal
-    "AZURE_OPENAI_KEY"               = "REPLACE_IN_PORTAL"
-    "AZURE_OPENAI_ENDPOINT"          = "REPLACE_IN_PORTAL"
-    "AZURE_OPENAI_API_VERSION"       = "REPLACE_IN_PORTAL"
-    "AZURE_GPT_DEPLOYMENT"           = "REPLACE_IN_PORTAL"
-    "AZURE_EMBEDDING_DEPLOYMENT"     = "REPLACE_IN_PORTAL"
-    "AZURE_SEARCH_KEY"               = "REPLACE_IN_PORTAL"
-    "AZURE_SEARCH_ENDPOINT"          = "REPLACE_IN_PORTAL"
-    "AZURE_SEARCH_INDEX"             = "REPLACE_IN_PORTAL"
+    # Auto-linking our new resources
+    "AZURE_OPENAI_KEY"               = azurerm_cognitive_account.openai.primary_access_key
+    "AZURE_OPENAI_ENDPOINT"          = azurerm_cognitive_account.openai.endpoint
+    "AZURE_OPENAI_API_VERSION"       = "2024-02-15-preview"
+    "AZURE_GPT_DEPLOYMENT"           = azurerm_cognitive_deployment.gpt.name
+    "AZURE_EMBEDDING_DEPLOYMENT"     = azurerm_cognitive_deployment.embedding.name
+    "AZURE_SEARCH_KEY"               = azurerm_search_service.search.primary_key
+    "AZURE_SEARCH_ENDPOINT"          = "https://${azurerm_search_service.search.name}.search.windows.net"
+    "AZURE_SEARCH_INDEX"             = "kent-student-index"
   }
 
   tags = azurerm_resource_group.main.tags
