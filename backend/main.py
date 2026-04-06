@@ -88,13 +88,28 @@ class ChatResponse(BaseModel):
 
 # 🛡️ SAFETY GUARDRAIL: Crisis keywords that completely bypass the AI
 CRISIS_KEYWORDS = [
-    "suicide", "suicidal",
-    "self-harm", "self harm", "hurt myself", "harm myself", "hurting myself",
-    "depressed", "depression",
-    "anxiety attack", "panic attack",
-    "mental health crisis",
-    "crisis",
-    "samaritans",
+    # Suicide and self-harm
+    "suicide", "suicidal", "kill myself", "end my life", "take my life",
+    "want to die", "wish i was dead", "better off dead", "no reason to live",
+    "self-harm", "self harm", "cut myself", "cutting myself", "hurt myself", 
+    "harm myself", "hurting myself", "harming myself",
+    
+    # Violence and threats
+    "kill", "murder", "hurt someone", "harm someone", "going to hurt",
+    "want to hurt", "going to kill", "planning to",
+    
+    # Mental health crisis
+    "depressed", "depression", "can't go on", "cannot go on", "give up", "giving up",
+    "hopeless", "no hope", "worthless", "useless",
+    "anxiety attack", "panic attack", "breakdown", "mental breakdown",
+    "mental health crisis", "crisis", "emergency",
+    
+    # Distress signals
+    "can't cope", "cannot cope", "too much", "can't take it", "cannot take it",
+    "overwhelmed", "drowning", "suffocating",
+    
+    # Help-seeking
+    "samaritans", "need help now", "urgent help", "immediate help"
 ]
 
 # Telegram Bot Configuration
@@ -197,6 +212,10 @@ async def chat_endpoint(request: ChatRequest):
                     handoff_required=True,
                     session_id=request.session_id
                 )
+        else:
+            # Session ended - clear it and continue to normal flow
+            print(f"⚠️ Session {request.session_id} is no longer active, returning to normal chatbot")
+            # Don't return session_id so frontend clears it
     
     # 1. Execute Safety Guardrail with Handoff
     if any(keyword in user_message for keyword in CRISIS_KEYWORDS):

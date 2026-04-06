@@ -235,6 +235,11 @@ function App() {
       if (data.session_id && !crisisSessionId) {
         setCrisisSessionId(data.session_id);
       }
+      
+      // If response doesn't have session_id but we have one, clear it (session ended)
+      if (!data.session_id && crisisSessionId) {
+        setCrisisSessionId(null);
+      }
     } catch (error) {
       let errorMsg = "Sorry, I am having trouble connecting to the server.";
       if (error.name === 'AbortError') {
