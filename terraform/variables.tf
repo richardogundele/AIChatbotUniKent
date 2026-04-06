@@ -85,3 +85,15 @@ variable "github_repo" {
   type        = string
   default     = "richardogundele/AIChatbotUniKent"
 }
+
+variable "telegram_bot_token" {
+  description = "Telegram Bot Token for crisis support (get from @BotFather)"
+  type        = string
+  sensitive   = true
+}
+
+variable "telegram_chat_id" {
+  description = "Telegram Chat ID for support agent (get from @userinfobot)"
+  type        = string
+  sensitive   = true
+}

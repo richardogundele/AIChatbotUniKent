@@ -156,6 +156,10 @@ resource "azurerm_linux_web_app" "backend" {
     "AZURE_SEARCH_KEY"               = azurerm_search_service.search.primary_key
     "AZURE_SEARCH_ENDPOINT"          = "https://${azurerm_search_service.search.name}.search.windows.net"
     "AZURE_SEARCH_INDEX"             = "kent-student-index"
+    
+    # Telegram Crisis Support
+    "TELEGRAM_BOT_TOKEN"             = var.telegram_bot_token
+    "TELEGRAM_CHAT_ID"               = var.telegram_chat_id
   }
 
   tags = azurerm_resource_group.main.tags

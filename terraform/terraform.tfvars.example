@@ -1,0 +1,38 @@
+# =============================================================
+# TERRAFORM VARIABLES - COPY THIS FILE TO terraform.tfvars
+# =============================================================
+# 
+# INSTRUCTIONS:
+# 1. Copy this file: cp terraform.tfvars.example terraform.tfvars
+# 2. Fill in your values below
+# 3. Run: terraform apply
+#
+# NEVER commit terraform.tfvars to Git (it's in .gitignore)
+# =============================================================
+
+# Azure Subscription (Get with: az account show)
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+
+# Your University Name (used as prefix for all resources)
+app_name            = "your-university-chatbot"
+resource_group_name = "rg-your-university-chatbot"
+environment         = "prod"
+
+# Azure Region (uksouth for UK universities, westeurope for others)
+location = "uksouth"
+
+# Telegram Bot (Get from @BotFather and @userinfobot)
+telegram_bot_token = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+telegram_chat_id   = "123456789"
+
+# GitHub Repository (for auto-deployment)
+github_repo = "your-username/your-forked-repo"
+
+# Custom Domain (Optional - leave as default if not using custom domain)
+chariotai_domain = "chatbot.your-university.edu"
+
+# Pricing Tiers (Adjust based on your needs)
+openai_sku      = "S0"     # Standard OpenAI
+search_sku      = "free"   # free or basic (~£60/month)
+app_service_sku = "B1"     # B1 (~£10/month) or S1 (~£50/month)
