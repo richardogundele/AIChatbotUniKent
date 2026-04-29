@@ -1,6 +1,6 @@
 # ChariotAI - AI Powered Student Support Chatbot
 
-**ChariotAI** is an enterprise-grade, RAG-powered (Retrieval-Augmented Generation) student support chatbot designed specifically for the University of Kent. It provides 24/7, highly accurate, and legally compliant answers to student queries ranging from admissions and academic integrity to wellbeing support.
+**ChariotAI** is an enterprise-grade, RAG-powered (Retrieval-Augmented Generation) student support chatbot designed specifically for the UK Universities. It provides 24/7, highly accurate, and legally compliant answers to student queries ranging from admissions and academic integrity to wellbeing support.
 
 ### 🌟 Live Demo
 - **Live Frontend**: (https://delightful-coast-0e2e5d103.6.azurestaticapps.net/)
